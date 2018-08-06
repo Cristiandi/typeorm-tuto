@@ -10,6 +10,8 @@ export class Autor {
     @Column()
     public name: string
 
-    @OneToMany(() => Photo, ( photo ) => photo.autor)
+    @OneToMany(() => Photo, ( photo ) => photo.autor, {
+        cascade: true
+    })
     public photos: Photo[]
 }

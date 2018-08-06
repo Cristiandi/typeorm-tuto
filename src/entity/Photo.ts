@@ -24,7 +24,9 @@ export class Photo {
     })
     public views: number
 
-    @Column()
+    @Column({
+      default: false
+    })
     public isPublished: boolean
 
     // Con la opcion cascade se puede guardar la relacion desde este modelo
@@ -38,5 +40,5 @@ export class Photo {
     public autor: Autor
 
     @ManyToMany(() => Album, (album) => album.photos)
-    public albums: Album
+    public albums: Album[]
 }
