@@ -1,9 +1,9 @@
 import 'reflect-metadata'
 import { createConnection } from 'typeorm'
-import { Photo } from './entity/Photo'
-import { PhotoMetadata } from './entity/PhotoMetadata'
 import { Album } from './entity/Album';
 import { Autor } from './entity/Autor';
+import { Photo } from './entity/Photo'
+import { PhotoMetadata } from './entity/PhotoMetadata'
 
 // tslint:disable-next-line:no-var-requires
 const ormconfig =  require('../ormconfig.json')
@@ -212,6 +212,28 @@ const start = async () => {
         .catch((err) => console.log(err))
     */
 
+    /* Utilizando el query builder */
+    /*
+    const queryBuilder = async () => {
+        const photoRepository = connection.getRepository(Photo)
+        const photos = await photoRepository
+        .createQueryBuilder('photo')
+        .innerJoinAndSelect('photo.metadata', 'metadata')
+        .leftJoinAndSelect('photo.albums', 'album')
+        .where('photo.isPublished = true')
+        .andWhere('(photo.name = :photoName OR photo.name = :bearName)')
+        .orderBy('photo.id', 'DESC')
+        .skip(5)
+        .take(10)
+        .setParameters({ photoName: 'My', bearName: 'Mishka' })
+        .getMany()
+        console.log('Fotos consultadas', photos)
+        return Promise.resolve()
+    }
+    queryBuilder()
+        .then(() => console.log('Query builder'))
+        .catch(( err ) => console.log(err))
+    */
     return Promise.resolve()
 }
 

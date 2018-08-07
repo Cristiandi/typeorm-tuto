@@ -10,9 +10,15 @@
    "author": "",
    "license": "ISC",
    "dependencies": {
-      "@types/node": "^10.5.6",
+      "body-parser": "^1.18.3",
+      "cors": "^2.8.4",
+      "dotenv": "^6.0.0",
+      "express": "^4.16.3",
+      "http": "^0.0.0",
+      "morgan": "^1.9.0",
       "mysql": "^2.14.1",
       "reflect-metadata": "^0.1.10",
+      "request-ip": "^2.1.1",
       "tslint": "^5.11.0",
       "typeorm": "0.2.7"
    },

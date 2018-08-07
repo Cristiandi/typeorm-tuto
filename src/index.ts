@@ -1,220 +1,109 @@
+import bodyParser = require('body-parser')
+import cors =  require('cors')
+import express = require('express')
+import * as http from 'http'
+import morgan = require('morgan')
 import 'reflect-metadata'
+import * as requestIp from 'request-ip'
 import { createConnection } from 'typeorm'
-import { Photo } from './entity/Photo'
-import { PhotoMetadata } from './entity/PhotoMetadata'
-import { Album } from './entity/Album';
-import { Autor } from './entity/Autor';
+import { AlbumController } from './controllers/AlbumController'
 
 // tslint:disable-next-line:no-var-requires
 const ormconfig =  require('../ormconfig.json')
 
-const start = async () => {
-    const connection = await createConnection(ormconfig)
+// tslint:disable-next-line:no-var-requires
+const config =  require('../config.json')
 
-    /* CRUD a una entidad */
-    /*
-    const CRUD = async () => {
-        // Guargar un registro
-        const photo = new Photo()
-        photo.name = 'Me and Bears'
-        photo.description = 'I am near polar bears'
-        photo.fileName = 'photo-with-bears.jpg'
-        photo.views = 0
-        photo.isPublished = false
+createConnection()
+    .then(() => {
+        const app: any = express()
+        const port: number =  parseInt(process.env.API_PORT, 0) || 8080
+        app.server = http.createServer(app)
 
-        const photoRepository = connection.getRepository(Photo)
+        // logger
+        app.use(morgan('dev'))
 
-        const result: Photo = await photoRepository.save(photo)
-        console.log('Foto guardada', result)
+        // 3rd party middleware
+        app.use(
+            cors({
+            exposedHeaders: config.corsHeaders
+            })
+        )
 
-        // Consulta todos los registros
-        const allPhotos: Photo[] = await photoRepository.find()
-        console.log('Todas la fotos en la DB: ', allPhotos)
+        app.use(
+            bodyParser.json({
+            limit: config.bodyLimit
+            })
+        )
 
-        // Consulta por atrbuto
-        const meAndBearsPhoto: Photo = await photoRepository.findOne({ name: 'Me and Bears' })
-        console.log('Una foto: ', meAndBearsPhoto)
+        app.set('port', port)
 
-        // Consulta todas los registros con where
-        const allViewedPhotos: Photo[] = await photoRepository.find({ views: 1 })
-        console.log('All viewed photos: ', allViewedPhotos)
+        app.listen(port, async () => {
+            console.log('Node app is running on port', port)
+        })
 
-        // Consulta y cuenta todos los registros
-        const photosAndCount: [Photo[], number] = await photoRepository.findAndCount()
-        console.log('All photos: ', photosAndCount[0])
-        console.log('Photos count: ', photosAndCount[1])
+        /* ROUTES */
+        app.get('/', (req, res) => {
+            const clientIp: string = requestIp.getClientIp(req)
+            const response: object = { yourIp: clientIp, time: new Date().toISOString() }
+            res.status(200).send(response)
+        })
 
-        // Consulta por id y actualiza el registro
-        const photoToUpdate = await photoRepository.findOne(allPhotos[allPhotos.length - 1].id)
-        photoToUpdate.name = 'Me, my friends and polar bears'
-        await photoRepository.save(photoToUpdate)
+        /* ALBUMS */
 
-        // Consulta por id y elimina el registro
-        const photoToRemove = await photoRepository.findOne(allPhotos[0].id)
-        await photoRepository.remove(photoToRemove)
-    }
-    CRUD()
-        .then(() => console.log('CRUD'))
-        .catch((err) => console.log(err))
-    */
-    /* Relacion One to One sin Cascade */
-    /*
-    const oneToOne = async () => {
-        // Creo la foto
-        let photo: Photo = new Photo()
-        photo.name = 'Yo y los osos'
-        photo.description = 'Yo estando cerca de los osos'
-        photo.fileName = 'photo-with-bears.jpg'
-        photo.isPublished = true
+        app.get('/albums', async (req, res, next) => {
+            const controller = new AlbumController()
+            let albums = null
+            try {
+                albums = await controller.getAll()
+            } catch (error) {
+                return next(error)
+            }
+            return res.status(200).send(albums)
+        })
 
-        // Creo los meta datos para la foto
-        let metadata = new PhotoMetadata()
-        metadata.height = 640
-        metadata.width = 480
-        metadata.compressed = true
-        metadata.comment = 'cybershoot'
-        metadata.orientation = 'portait'
-        metadata.photo = photo // de esta manera conectamos la entidades
+        app.get('/albums/:id', async (req, res, next) => {
+            const controller: AlbumController = new AlbumController()
+            let album = null
+            try {
+                album = await controller.getOne(req.params.id)
+            } catch (error) {
+                return next(error.message)
+            }
+            return res.status(200).send(album)
+        })
 
-        // Obtengo los repositorios
-        const photoRepository = connection.getRepository(Photo)
-        const metadataRepository = connection.getRepository(PhotoMetadata)
+        app.post('/albums', async (req, res, next) => {
+            const controller: AlbumController = new AlbumController()
+            let album = null
+            try {
+                album = await controller.post(req.body.album)
+            } catch (error) {
+                return next(error.message)
+            }
+            return res.status(200).send(album)
+        })
 
-        // Primero se crea la foto
-        photo = await photoRepository.save(photo)
-        console.log('Foto', photo)
+        app.patch('/albums/:id', async (req, res, next) => {
+            const controller: AlbumController = new AlbumController()
+            let album = null
+            try {
+                album = await controller.patch(req.params.id, req.body.album)
+            } catch (error) {
+                return next(error.message)
+            }
+            return res.status(200).send(album)
+        })
 
-        // Despues la meta-data para la foto
-        metadata = await metadataRepository.save(metadata)
-        console.log('Metadata', metadata)
-    }
-    oneToOne()
-        .then(() => console.log('One to one'))
-        .catch((err) => console.log(err))
-    */
-    /* Relacion One to One con Cascade */
-    /*
-    const oneToOneCascade = async () => {
-        // Creo el objeto Photo
-        const photo: Photo = new Photo()
-        photo.name = 'Me and Bears'
-        photo.description = 'I am near polar bears'
-        photo.fileName = 'photo-with-bears.jpg'
-        photo.isPublished = true
-
-        // Creo el obejto PhotoMetaData
-        const metadata: PhotoMetadata = new PhotoMetadata()
-        metadata.height = 640
-        metadata.width = 480
-        metadata.compressed = true
-        metadata.comment = 'cybershoot'
-        metadata.orientation = 'portait'
-
-        photo.metadata = metadata // De esta manera coneto las entidades
-
-        // Obtengo el repositorio
-        const photoRepository = connection.getRepository(Photo)
-
-        // Guardo el objeto Photo y el objeto PhotoMetadata
-        await photoRepository.save(photo)
-
-        console.log('Ambos objetos han sido guardados')
-
-        // Consulta los registros con las relaciones
-        const photos = await photoRepository.find({ relations: ['metadata'] })
-        console.log('Fotos', photos)
-
-        // Consulta los registros con las relaciones con el QueryBuilder
-        const photos1 = await connection
-            .getRepository(Photo)
-            .createQueryBuilder('photo')
-            .innerJoinAndSelect('photo.metadata', 'metadata')
-            .getMany()
-        console.log('Fotos con Query Builder', photos1)
-    }
-    oneToOneCascade()
-        .then(() => console.log('One to one cascade'))
-        .catch((err) => console.log(err))
-    */
-    /* Relacion Many to Many */
-    /*
-    const manyToMany = async () => {
-        // Creo algunos Albunes
-        const album1 = new Album()
-        album1.name = 'Bears'
-
-        const album2 = new Album()
-        album2.name = 'Me'
-
-        // Obtengo el repositorio
-        const albumRepository = connection.getRepository(Album)
-
-        // almaceno los registros
-        await albumRepository.save(album1)
-        await albumRepository.save(album2)
-
-        // Creo una foto
-        const photo = new Photo()
-        photo.name = 'Me and Bears'
-        photo.description = 'I am near polar bears'
-        photo.fileName = 'photo-with-bears.jpg'
-        photo.albums = [album1, album2]
-
-        // Obtengo el repositorio
-        const photoRepository = connection.getRepository(Photo)
-
-        // Almaceno los registros
-        await photoRepository.save(photo)
-
-        // Consulto la foto que tiene creada la relacion
-        const loadedPhoto = photoRepository
-            .findOne(13, { relations: ['albums'] })
-
-        console.log('Fotos', loadedPhoto)
-    }
-    manyToMany()
-        .then(() => console.log('Many to many'))
-        .catch((err) => console.log(err))
-    */
-    /* Relacion One to Many - Many to One */
-    /*
-    const oneToMany = async () => {
-        // Creo el autor
-        const autor = new Autor()
-        autor.name = 'Cristian David Ippolito'
-
-        // Creo algunas fotos
-        const photo1 = new Photo()
-        photo1.name = 'El gato'
-        photo1.fileName = 'el-gato.jpg'
-        photo1.description = 'El gato durmiendo'
-
-        const photo2 = new Photo()
-        photo2.name = 'El perro'
-        photo2.fileName = 'el-perro.jpg'
-        photo2.description = 'El perro comiendo'
-
-        // Asigno las fotos del autor
-        autor.photos = [photo1, photo2]
-
-        // Obtengo el repositorio
-        const autorRepository = await connection.getRepository(Autor)
-
-        // Guardo los registros
-        await autorRepository.save(autor)
-
-        // Consulto el autor y sus fotos
-        const loadedAutor = await autorRepository.findOne(1, { relations: ['photos'] })
-        console.log('autor', loadedAutor)
-    }
-    oneToMany()
-        .then(() => console.log('One to many'))
-        .catch((err) => console.log(err))
-    */
-
-    return Promise.resolve()
-}
-
-start()
-    .then(() => console.log('Ready'))
-    .catch((err) => console.log('Error', err))
+        app.delete('/albums/:id', async (req, res, next) => {
+            const controller: AlbumController = new AlbumController()
+            let result
+            try {
+                result = await controller.remove(req.params.id)
+            } catch (error) {
+                return next(error.message)
+            }
+            return res.status(200).send(result)
+        })
+    })
+    .catch(( err ) => console.log('Error', err))
